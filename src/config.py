@@ -12,3 +12,6 @@ DB_URL = os.getenv('DB_URL', 'postgres://postgres:postgres@localhost:5432/tg_par
 
 # Уровень логирования
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'DEBUG')
+
+# id владельца бота
+ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "0"))

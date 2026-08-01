@@ -41,7 +41,7 @@ class SearchRequest(models.Model):
     channels = fields.ManyToManyField("models.Channel", related_name="search_requests")  # какие каналы
     keywords = fields.TextField(null=True)  # фильтр слов через запятую (null = все посты)
     interval_sec = fields.IntField(default=300)  # период между запусками, сек
-    limit_per_run = fields.IntField(default=50)  # макс. постов за один запуск
+    limit_per_run = fields.IntField(default=50)  # максимум постов за один запуск
     status = fields.CharField(max_length=20, default="stopped")  # running / paused / stopped
     last_run_at = fields.DatetimeField(null=True)  # последний запуск
     notify_chat_id = fields.BigIntField(null=True)  # чат, куда бот шлёт результаты

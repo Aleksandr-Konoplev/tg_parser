@@ -5,16 +5,24 @@ description = ""
 authors = [
     {name = "Konoplev Aleksandr",email = "konoplev.a.a0000@gmail.com"}
 ]
-requires-python = ">=3.14,<4.0"
+requires-python = ">=3.14,<3.15"
 dependencies = [
     "python-dotenv (>=1.2.2,<2.0.0)",
     "loguru (>=0.7.3,<0.8.0)",
     "tortoise-orm (>=1.1.7,<2.0.0)",
     "asyncpg (>=0.31.0,<0.32.0)",
-    "aerich (>=0.9.3,<0.10.0)"
+    "aerich (>=0.9.3,<0.10.0)",
+    "tzdata (>=2026.3,<2027.0)",
+    "telethon (>=1.44.0,<2.0.0)",
+    "aiogram (>=3.30.0,<4.0.0)"
 ]
 
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.tortoise]
+tortoise_orm = "src.db.config.TORTOISE_ORM"
+location = "./migrations"
+src_folder = "./."

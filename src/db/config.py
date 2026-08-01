@@ -1,10 +1,7 @@
 from tortoise import Tortoise
 from src.config import DB_URL
 
-# Конфигурация Tortoise ORM.
-# "connections" — подключения к БД (у нас одно, default)
-# "apps" — приложения моделей. "models" — список модулей с моделями.
-#   "aerich.models" обязателен — это служебная таблица для миграций.
+
 TORTOISE_ORM = {
     "connections": {"default": DB_URL},
     "apps": {
