@@ -16,7 +16,7 @@ class ParserManager:
     _tasks: dict[int, asyncio.Task] = {}
 
     # Синхронизация при старте приложения:
-    # для всех задач со статусом "running" поднимаем фоновый цикл парсинга
+    # для всех задач со статусом 'running' поднимаем фоновый цикл парсинга
     @classmethod
     async def sync_with_db(cls):
         running = await RequestService.get_running()
@@ -30,7 +30,7 @@ class ParserManager:
             return  # уже запущена
         task = asyncio.create_task(cls._run_loop(request_id))
         cls._tasks[request_id] = task
-        logger.info(f"Парсинг задачи {request_id} запущен")
+        logger.info(f'Парсинг задачи {request_id} запущен')
 
     # Остановить фоновый цикл для задачи
     @classmethod
@@ -42,19 +42,19 @@ class ParserManager:
                 await task
             except asyncio.CancelledError:
                 pass
-            logger.info(f"Парсинг задачи {request_id} остановлен")
+            logger.info(f'Парсинг задачи {request_id} остановлен')
 
     # Бесконечный цикл: парсим → спим interval_sec → повторяем
     @classmethod
     async def _run_loop(cls, request_id: int):
         while True:
             request = await RequestService.get(request_id)
-            if not request or request.status != "running":
+            if not request or request.status != 'running':
                 break
             try:
                 await cls._parse_once(request)
             except Exception as e:
-                logger.error(f"Задача {request_id}: необработанная ошибка {e}")
+                logger.error(f'Задача {request_id}: необработанная ошибка {e}')
             await asyncio.sleep(request.interval_sec)
 
     # Один проход парсинга по задаче
@@ -63,7 +63,7 @@ class ParserManager:
         # Аккаунт задачи должен быть активным, иначе пропускаем
         account = await request.account
         if not account.is_active:
-            logger.warning(f"Задача {request.id}: аккаунт {account.phone} неактивен, пропуск")
+            logger.warning(f'Задача {request.id}: аккаунт {account.phone} неактивен, пропуск')
             return
 
         # Каналы задачи: только активные (soft delete учтён)
@@ -75,10 +75,10 @@ class ParserManager:
                 await cls._parse_channel(request, account, channel)
             except Exception as e:
                 # Ошибка одного канала не должна ронять всю задачу
-                logger.error(f"Задача {request.id}, канал {channel}: {e}")
+                logger.error(f'Задача {request.id}, канал {channel}: {e}')
 
         request.last_run_at = datetime.now(timezone.utc)
-        await request.save(update_fields=["last_run_at"])
+        await request.save(update_fields=['last_run_at'])
 
 
     @classmethod
@@ -86,19 +86,19 @@ class ParserManager:
         # Последний уже распарсенный msg_id — с него начнём (не включая его)
         last_post = (
             await Post.filter(channel=channel, search_request=request)
-            .order_by("-telegram_msg_id")
+            .order_by('-telegram_msg_id')
             .first()
         )
         offset_id = last_post.telegram_msg_id if last_post else None
 
         # На что резолвить канал: @username если есть, иначе числовой telegram_id
-        channel_ref = f"@{channel.username}" if channel.username else channel.telegram_id
+        channel_ref = f'@{channel.username.lstrip("@")}' if channel.username else channel.telegram_id
 
         messages = await ClientPool.get_messages(account, channel_ref, limit=request.limit_per_run, offset_id=offset_id)
 
         new_posts = 0
         for msg in messages:
-            text = msg.text or ""
+            text = msg.text or ''
             # Фильтр по ключевым словам (keywords через запятую, пусто = все посты)
             if request.keywords and not cls._matches_keywords(text, request.keywords):
                 continue
@@ -109,12 +109,12 @@ class ParserManager:
                     telegram_msg_id=msg.id,
                     channel=channel,
                     defaults={
-                        "search_request": request,
-                        "text": text or None,
-                        "media_info": cls._extract_media(msg),
-                        "views": getattr(msg, "views", None),
-                        "forwards": getattr(msg, "forwards", None),
-                        "replies": getattr(msg, "replies", None),
+                        'search_request': request,
+                        'text': text or None,
+                        'media_info': cls._extract_media(msg),
+                        'views': getattr(msg, 'views', None),
+                        'forwards': getattr(msg, 'forwards', None),
+                        'replies': getattr(getattr(msg, 'replies', None), 'replies', None),
                     },
                 )
                 if created:
@@ -122,34 +122,34 @@ class ParserManager:
             except IntegrityError:
                 continue  # уже существует — пропускаем
 
-        logger.info(f"Задача {request.id}, канал {channel}: новых постов {new_posts}")
+        logger.info(f'Задача {request.id}, канал {channel}: новых постов {new_posts}')
         if new_posts > 0 and request.notify_chat_id:
             from src.bot.dispatcher import bot
             try:
                 await bot.send_message(
                     request.notify_chat_id,
-                    f"📢 {channel.title}: {new_posts} новых постов",
+                    f'📢 {channel.title}: {new_posts} новых постов',
                 )
             except Exception as send_err:
-                logger.error(f"Ошибка отправки уведомления: {send_err}")
+                logger.error(f'Ошибка отправки уведомления: {send_err}')
 
 
     # True если текст содержит хотя бы одно из ключевых слов (без учёта регистра)
     @staticmethod
     def _matches_keywords(text: str, keywords: str) -> bool:
-        words = [w.strip().lower() for w in keywords.split(",") if w.strip()]
+        words = [w.strip().lower() for w in keywords.split(',') if w.strip()]
         lower_text = text.lower()
         return any(w in lower_text for w in words)
 
     # Собираем JSON-описание медиа (тип + размер), без скачивания файлов
     @staticmethod
     def _extract_media(msg) -> dict | None:
-        media = getattr(msg, "media", None)
+        media = getattr(msg, 'media', None)
         if not media:
             return None
-        info = {"type": type(media).__name__}
-        doc = getattr(media, "document", None)
+        info = {'type': type(media).__name__}
+        doc = getattr(media, 'document', None)
         if doc:
-            info["size"] = getattr(doc, "size", None)
-            info["mime_type"] = getattr(doc, "mime_type", None)
+            info['size'] = getattr(doc, 'size', None)
+            info['mime_type'] = getattr(doc, 'mime_type', None)
         return info

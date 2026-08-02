@@ -171,11 +171,10 @@ async def cb_channel_add(call: CallbackQuery, state: FSMContext):
 async def process_channel_username(message: Message, state: FSMContext):
     raw = message.text.strip()
     username = raw.split("/")[-1].replace("@", "")
-    full_username = f"@{username}"
+    full_username = f"@{username}"   # только для резолва через Telethon
     telegram_id = 0
-    title = full_username
+    title = username
 
-    # Пробуем получить информацию о канале через первый активный аккаунт с сессией
     accounts = await AccountService.get_all()
     for acc in accounts:
         if acc.is_active and acc.session_str:
@@ -184,12 +183,12 @@ async def process_channel_username(message: Message, state: FSMContext):
                 client = await ClientPool.get_client(acc)
                 entity = await client.get_entity(full_username)
                 telegram_id = entity.id
-                title = getattr(entity, "title", None) or full_username
+                title = getattr(entity, "title", None) or username
                 break
             except Exception:
                 continue
 
-    channel = await ChannelService.create(telegram_id, full_username, title)
+    channel = await ChannelService.create(telegram_id, username, title)  # username без @
     await state.clear()
     await message.answer(f"✅ Канал {title} добавлен")
     channels = await ChannelService.get_all()
