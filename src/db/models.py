@@ -66,6 +66,7 @@ class Post(models.Model):
     forwards = fields.IntField(null=True)  # репосты
     replies = fields.IntField(null=True)  # комментарии
     parsed_at = fields.DatetimeField(auto_now_add=True)  # когда распарсен
+    posted_at = fields.DatetimeField(null=True)  # реальная дата публикации в Telegram
     raw_data = fields.JSONField(null=True)  # сырые данные Telethon для отладки
     sent_to_chat = fields.BooleanField(default=False)  # отправлен ли ботом в notify_chat
 

@@ -6,7 +6,8 @@
 - авторизовывать Telegram-аккаунты;
 - добавлять каналы для мониторинга;
 - настраивать задачи парсинга с фильтрами по ключевым словам;
-- собирать посты и отправлять результаты через Telegram-бота.
+- собирать посты и отправлять результаты через Telegram-бота;
+- просматривать сохранённые посты по задаче с фильтром по дате публикации, постраничной навигацией и возможностью вывести все посты;
 
 ## База данных
 
@@ -73,6 +74,7 @@ erDiagram
         int forwards
         int replies
         timestamptz parsed_at
+        timestamptz posted_at
         jsonb raw_data
         bool sent_to_chat
     }
@@ -150,6 +152,7 @@ Telegram-аккаунты, с которых выполняется парсин
 | forwards | int | nullable | Количество репостов |
 | replies | int | nullable | Количество комментариев |
 | parsed_at | timestamptz | NOT NULL, auto_now_add | Время парсинга |
+| posted_at | timestamptz | nullable | Реальная дата публикации поста в Telegram |
 | raw_data | jsonb | nullable | Сырые данные Telethon |
 | sent_to_chat | bool | NOT NULL, default false | Отправлен ли ботом в notify_chat |
 

@@ -1,24 +1,29 @@
+from datetime import date, datetime, time, timedelta, timezone
+
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from src.bot.dispatcher import dp
+from src.bot.dispatcher import bot, dp
 from src.bot.keyboards import (
     account_detail_kb,
     accounts_kb,
     channel_detail_kb,
     channels_kb,
     main_menu_kb,
+    posts_pagination_kb,
+    posts_period_kb,
     tasks_kb,
     task_detail_kb,
 )
 from src.config import ADMIN_CHAT_ID
 from src.services.account import AccountService
 from src.services.channel import ChannelService
+from src.services.post import PostService
 from src.tg_client.auth import AuthManager
-from src.bot.fsm import AddAccountStates, AddChannelStates, AddTaskStates
+from src.bot.fsm import AddAccountStates, AddChannelStates, AddTaskStates, ViewPostsStates
 from src.services.request import RequestService
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -29,6 +34,115 @@ dp.include_router(router)
 
 async def is_admin(message: Message) -> bool:
     return message.from_user.id == ADMIN_CHAT_ID
+
+
+def _parse_date(text: str) -> date | None:
+    """
+    Парсит строку формата DD.MM.YYYY в объект date.
+    При ошибке возвращает None.
+    """
+    try:
+        return datetime.strptime(text.strip(), "%d.%m.%Y").date()
+    except (ValueError, AttributeError):
+        return None
+
+
+def _utc_start_of_day(d: date) -> datetime:
+    """Возвращает начало указанного дня в UTC (00:00:00)."""
+    return datetime.combine(d, time.min, tzinfo=timezone.utc)
+
+
+def _utc_end_of_day(d: date) -> datetime:
+    """Возвращает конец указанного дня в UTC (23:59:59.999999)."""
+    return datetime.combine(d, time.max, tzinfo=timezone.utc)
+
+
+async def _send_posts_page(
+    event: Message | CallbackQuery,
+    state: FSMContext,
+    offset: int,
+) -> None:
+    """
+    Выводит одну страницу постов (PostService.PAGE_SIZE штук) и клавиатуру пагинации.
+
+    Если в FSM сохранены view_date_from и view_date_to — фильтрует по ним.
+    Если даты равны None — выводит все сохранённые посты задачи.
+    """
+    data = await state.get_data()
+    request_id = data.get("view_request_id")
+    date_from = data.get("view_date_from")
+    date_to = data.get("view_date_to")
+    task_name = data.get("view_task_name", "Задача")
+
+    # Определяем чат, в который будем писать
+    if isinstance(event, CallbackQuery):
+        chat = event.message.chat
+    else:
+        chat = event.chat
+
+    # Защита от случая, если данные потерялись
+    if not request_id:
+        await bot.send_message(chat.id, "⚠️ Данные просмотра не найдены. Начните сначала.")
+        return
+
+    # Выбираем запрос в зависимости от того, задан ли фильтр по дате
+    if date_from is not None and date_to is not None:
+        total = await PostService.count_posts(request_id, date_from, date_to)
+        posts = await PostService.get_posts(
+            request_id, date_from, date_to,
+            limit=PostService.PAGE_SIZE,
+            offset=offset,
+        )
+        period_str = (
+            f"Период: {date_from.strftime('%d.%m.%Y')} — {date_to.strftime('%d.%m.%Y')}"
+        )
+    else:
+        total = await PostService.count_posts(request_id)
+        posts = await PostService.get_posts(
+            request_id,
+            limit=PostService.PAGE_SIZE,
+            offset=offset,
+        )
+        period_str = "Все сохранённые посты"
+
+    # Если постов нет — сообщаем и показываем только кнопку возврата к задаче
+    if total == 0:
+        await bot.send_message(
+            chat.id,
+            "📭 Посты не найдены.",
+            reply_markup=posts_pagination_kb(request_id, offset, False),
+        )
+        return
+
+    page_size = PostService.PAGE_SIZE
+    current_page = offset // page_size + 1
+    total_pages = (total + page_size - 1) // page_size
+
+    # Заголовок страницы
+    await bot.send_message(
+        chat.id,
+        (
+            f"📄 Посты задачи «{task_name}»\n"
+            f"{period_str}\n"
+            f"Страница {current_page} из {total_pages} ({total} постов)"
+        ),
+    )
+
+    # Каждый пост — отдельным сообщением, чтобы Telegram мог сделать превью ссылки
+    for post in posts:
+        await bot.send_message(
+            chat.id,
+            PostService.format_post(post),
+            disable_web_page_preview=False,
+        )
+
+    # Клавиатура пагинации под последним постом
+    has_more = offset + page_size < total
+    await bot.send_message(
+        chat.id,
+        "⬆️ Конец страницы",
+        reply_markup=posts_pagination_kb(request_id, offset, has_more),
+    )
 
 
 # ───────────────────── /start ─────────────────────
@@ -388,6 +502,139 @@ async def cb_task_delete(call: CallbackQuery):
     await ParserManager.stop_request(task_id)
     await RequestService.delete(task_id)
     await call.message.edit_text("Задача удалена")
+    await call.answer()
+
+
+# ───────────────────── Просмотр постов задачи с фильтром по дате ─────────────────────
+
+@router.callback_query(F.data.startswith("view_posts:"))
+async def cb_view_posts(call: CallbackQuery, state: FSMContext):
+    """
+    Начинает просмотр сохранённых постов задачи.
+    Запоминает ID задачи и предлагает выбрать период публикации.
+    """
+    task_id = int(call.data.split(":")[1])
+    task = await RequestService.get(task_id)
+
+    if not task:
+        await call.answer("Задача не найдена", show_alert=True)
+        return
+
+    await state.update_data(view_request_id=task.id, view_task_name=task.name)
+    await state.set_state(ViewPostsStates.period)
+
+    await call.message.edit_text(
+        "Выберите период публикации постов:",
+        reply_markup=posts_period_kb(task.id),
+    )
+    await call.answer()
+
+
+@router.callback_query(ViewPostsStates.period, F.data.startswith("posts_period:"))
+async def cb_posts_period(call: CallbackQuery, state: FSMContext):
+    """
+    Обрабатывает выбор периода.
+    Для готовых вариантов сразу считает границы UTC и показывает первую страницу.
+    Для произвольного периода переходит к пошаговому вводу дат.
+    """
+    period = call.data.split(":")[1]
+    today = date.today()
+
+    if period == "today":
+        date_from = _utc_start_of_day(today)
+        date_to = _utc_end_of_day(today)
+
+    elif period == "yesterday":
+        y = today - timedelta(days=1)
+        date_from = _utc_start_of_day(y)
+        date_to = _utc_end_of_day(y)
+
+    elif period == "7days":
+        date_from = _utc_start_of_day(today - timedelta(days=7))
+        date_to = _utc_end_of_day(today)
+
+    elif period == "custom":
+        await state.set_state(ViewPostsStates.custom_from)
+        await call.message.edit_text("Введите начальную дату в формате DD.MM.YYYY:")
+        await call.answer()
+        return
+
+    elif period == "all":
+        # Режим «все посты»: фильтр по дате не применяется
+        await state.update_data(view_date_from=None, view_date_to=None)
+        await state.set_state(None)
+        await _send_posts_page(call, state, offset=0)
+        await call.answer()
+        return
+
+    else:
+        await call.answer("Неизвестный период", show_alert=True)
+        return
+
+    await state.update_data(view_date_from=date_from, view_date_to=date_to)
+    await state.set_state(None)  # выходим из FSM, данные остаются для пагинации
+    await _send_posts_page(call, state, offset=0)
+    await call.answer()
+
+
+@router.message(ViewPostsStates.custom_from)
+async def process_posts_date_from(message: Message, state: FSMContext):
+    """
+    Получает начальную дату произвольного периода.
+    """
+    parsed = _parse_date(message.text)
+    if not parsed:
+        await message.answer(
+            "❌ Неверный формат. Введите дату как DD.MM.YYYY, например 15.03.2024:"
+        )
+        return
+
+    await state.update_data(view_date_from_input=parsed)
+    await state.set_state(ViewPostsStates.custom_to)
+    await message.answer("Введите конечную дату в формате DD.MM.YYYY:")
+
+
+@router.message(ViewPostsStates.custom_to)
+async def process_posts_date_to(message: Message, state: FSMContext):
+    """
+    Получает конечную дату произвольного периода,
+    проверяет корректность диапазона и выводит первую страницу постов.
+    """
+    parsed = _parse_date(message.text)
+    if not parsed:
+        await message.answer(
+            "❌ Неверный формат. Введите дату как DD.MM.YYYY, например 15.03.2024:"
+        )
+        return
+
+    data = await state.get_data()
+    from_date = data.get("view_date_from_input")
+
+    if parsed < from_date:
+        await message.answer(
+            "❌ Конечная дата не может быть раньше начальной. Введите снова:"
+        )
+        return
+
+    await state.update_data(
+        view_date_from=_utc_start_of_day(from_date),
+        view_date_to=_utc_end_of_day(parsed),
+    )
+    await state.set_state(None)
+
+    await _send_posts_page(message, state, offset=0)
+
+
+@router.callback_query(F.data.startswith("posts_page:"))
+async def cb_posts_page(call: CallbackQuery, state: FSMContext):
+    """
+    Перелистывает страницы с постами.
+    """
+    offset = int(call.data.split(":")[1])
+    if offset < 0:
+        offset = 0
+
+    await _send_posts_page(call, state, offset)
     await call.answer()
 
 

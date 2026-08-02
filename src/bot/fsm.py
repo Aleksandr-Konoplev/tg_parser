@@ -19,3 +19,10 @@ class AddTaskStates(StatesGroup):
     channels = State()      # выбор каналов
     keywords = State()      # ключевые слова (можно пропустить)
     interval = State()      # интервал в секундах
+
+
+# Состояния просмотра сохранённых постов задачи с фильтром по дате
+class ViewPostsStates(StatesGroup):
+    period = State()        # выбор готового периода или произвольного диапазона
+    custom_from = State()   # ввод начальной даты (DD.MM.YYYY)
+    custom_to = State()     # ввод конечной даты (DD.MM.YYYY)

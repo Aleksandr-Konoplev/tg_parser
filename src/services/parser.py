@@ -104,7 +104,7 @@ class ParserManager:
                 continue
 
             try:
-                # get_or_create — защита от дублей, если канал в нескольких задачах
+                    # get_or_create — защита от дублей, если канал в нескольких задачах
                 _, created = await Post.get_or_create(
                     telegram_msg_id=msg.id,
                     channel=channel,
@@ -115,6 +115,7 @@ class ParserManager:
                         'views': getattr(msg, 'views', None),
                         'forwards': getattr(msg, 'forwards', None),
                         'replies': getattr(getattr(msg, 'replies', None), 'replies', None),
+                        'posted_at': cls._normalize_msg_date(msg.date),
                     },
                 )
                 if created:
@@ -153,3 +154,16 @@ class ParserManager:
             info['size'] = getattr(doc, 'size', None)
             info['mime_type'] = getattr(doc, 'mime_type', None)
         return info
+
+    # Приводим дату сообщения от Telethon к timezone-aware UTC
+    @staticmethod
+    def _normalize_msg_date(value) -> datetime | None:
+        """
+        Telethon возвращает msg.date обычно как aware-UTC.
+        Если по какой-то причине дата без таймзоны — считаем её UTC.
+        """
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)

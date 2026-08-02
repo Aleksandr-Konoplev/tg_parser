@@ -2,6 +2,7 @@ from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.db.models import TelegramAccount, Channel, SearchRequest
+from src.services.post import PostService
 
 
 # Главное меню
@@ -79,6 +80,8 @@ def tasks_kb(tasks: list[SearchRequest]) -> InlineKeyboardMarkup:
 # Детали задачи + действия
 def task_detail_kb(task: SearchRequest) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
+    # Новая кнопка просмотра сохранённых постов с фильтром по дате
+    kb.button(text="📄 Показать посты", callback_data=f"view_posts:{task.id}")
     if task.status == "stopped" or task.status == "paused":
         kb.button(text="▶️ Запустить", callback_data=f"task_start:{task.id}")
     if task.status == "running":
@@ -87,6 +90,43 @@ def task_detail_kb(task: SearchRequest) -> InlineKeyboardMarkup:
     kb.button(text="🗑 Удалить", callback_data=f"task_delete:{task.id}")
     kb.button(text="🔙 Назад", callback_data="tasks")
     kb.adjust(1)
+    return kb.as_markup()
+
+
+# Клавиатура выбора периода публикации постов
+def posts_period_kb(task_id: int) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(text="📅 Сегодня", callback_data="posts_period:today")
+    kb.button(text="📆 Вчера", callback_data="posts_period:yesterday")
+    kb.button(text="🗓 Последние 7 дней", callback_data="posts_period:7days")
+    kb.button(text="✏️ Свой период", callback_data="posts_period:custom")
+    kb.button(text="📋 Все посты", callback_data="posts_period:all")
+    kb.button(text="🔙 Назад", callback_data=f"task:{task_id}")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+# Клавиатура постраничного вывода постов
+def posts_pagination_kb(
+    task_id: int,
+    offset: int,
+    has_more: bool,
+) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    # Кнопка «Назад» доступна, если мы не на первой странице
+    if offset > 0:
+        kb.button(
+            text="◀️ Назад",
+            callback_data=f"posts_page:{offset - PostService.PAGE_SIZE}",
+        )
+    # Кнопка «Далее» доступна, если есть следующая страница
+    if has_more:
+        kb.button(
+            text="▶️ Далее",
+            callback_data=f"posts_page:{offset + PostService.PAGE_SIZE}",
+        )
+    kb.button(text="🔙 К задаче", callback_data=f"task:{task_id}")
+    kb.adjust(2)  # две кнопки пагинации в один ряд
     return kb.as_markup()
 
 
