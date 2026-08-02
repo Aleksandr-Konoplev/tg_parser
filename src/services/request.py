@@ -1,4 +1,4 @@
-from src.db.models import SearchRequest
+from src.db.models import SearchRequest, Channel
 from src.utils.logger import logger
 
 
@@ -36,7 +36,10 @@ class RequestService:
         request = await SearchRequest.get_or_none(id=request_id)
         if not request:
             return None
-        await request.channels.add(channel_id)  # Tortoise M2M: add принимает id или объект
+        channel = await Channel.get_or_none(id=channel_id)
+        if not channel:
+            return None
+        await request.channels.add(channel)
         return request
 
     @staticmethod

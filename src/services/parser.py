@@ -123,7 +123,15 @@ class ParserManager:
                 continue  # уже существует — пропускаем
 
         logger.info(f"Задача {request.id}, канал {channel}: новых постов {new_posts}")
-        # TODO (Шаг 6): отправить new_posts через бота в request.notify_chat_id
+        if new_posts > 0 and request.notify_chat_id:
+            from src.bot.dispatcher import bot
+            try:
+                await bot.send_message(
+                    request.notify_chat_id,
+                    f"📢 {channel.title}: {new_posts} новых постов",
+                )
+            except Exception as send_err:
+                logger.error(f"Ошибка отправки уведомления: {send_err}")
 
 
     # True если текст содержит хотя бы одно из ключевых слов (без учёта регистра)

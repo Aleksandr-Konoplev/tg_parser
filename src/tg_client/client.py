@@ -1,4 +1,3 @@
-import asyncio
 from src.tg_client.auth import AuthManager
 from telethon import TelegramClient
 from telethon.sessions import StringSession
@@ -14,14 +13,13 @@ class ClientPool:
 
     # Получить клиент для аккаунта. Создаёт и авторизует, если ещё нет.
     @staticmethod
-    async def get_client(account: TelegramAccount) -> TelegramClient:
+    async def get_client(account: TelegramAccount) -> TelegramClient | None:
         # Уже создавали — возвращаем как есть
         if account.id in _client_pool:
             return _client_pool[account.id]
 
         # Создаём новый клиент Telethon
-        # StringSession — хранит сессию как строку (мы кладём её в БД),
-        # чтобы не таскать .session файлы и авторизовываться заново.
+        # StringSession — хранит сессию как строку (мы кладём её в БД)
         client = TelegramClient(
             StringSession(account.session_str),
             account.api_id,
@@ -44,6 +42,9 @@ class ClientPool:
             await ClientPool.save_session(account, client)
         else:
             logger.info(f"Аккаунт {account.phone} авторизован из сохранённой сессии")
+
+        _client_pool[account.id] = client
+        return client
 
     # Сохранить строку сессии обратно в БД (после успешной авторизации)
     @staticmethod
