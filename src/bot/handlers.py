@@ -392,19 +392,32 @@ async def cb_task_delete(call: CallbackQuery):
     await call.answer()
 
 
-# ───────────────────── Ввод кода авторизации ─────────────────────
-# Ловим сообщения, похожие на код (4-6 цифр), когда есть запрос
+# ───────────────────── Ввод кода/пароля авторизации ─────────────────────
+# Регистрируется ПОСЛЕ всех FSM-хендлеров, чтобы не перехватывать их сообщения
 
-@router.message(F.text.regexp(r"^\d{4,6}$"))
-async def handle_auth_code(message: Message):
-    from src.tg_client.auth import _pending_codes
-    if not _pending_codes:
-        return  # код не запрашивали — пропускаем, может быть FSM
+@router.message(F.text)
+async def handle_auth_input(message: Message):
+    from src.tg_client.auth import _pending_codes, _pending_passwords
+    text = message.text.strip()
 
-    code = message.text.strip()
-    account_id, _ = next(iter(_pending_codes.items()))  # берём первый
-    ok = await AuthManager.submit_code(account_id, code)
-    if ok:
-        await message.answer("✅ Код принят, продолжаю авторизацию")
-    else:
-        await message.answer("❌ Не удалось отправить код")
+    # 1. Сначала пароль (пароль может быть любой строкой, даже цифрами)
+    if _pending_passwords:
+        account_id, _ = next(iter(_pending_passwords.items()))
+        ok = await AuthManager.submit_password(account_id, text)
+        if ok:
+            await message.answer("✅ 2FA-пароль принят, продолжаю авторизацию")
+        else:
+            await message.answer("❌ Не удалось отправить пароль")
+        return
+
+    # 2. Потом код — только 4-6 цифр
+    if _pending_codes:
+        if not text.isdigit() or not (4 <= len(text) <= 6):
+            await message.answer("❌ Код должен быть числом из 4-6 цифр")
+            return
+        account_id, _ = next(iter(_pending_codes.items()))
+        ok = await AuthManager.submit_code(account_id, text)
+        if ok:
+            await message.answer("✅ Код принят, продолжаю авторизацию")
+        else:
+            await message.answer("❌ Не удалось отправить код")

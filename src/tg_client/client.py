@@ -1,4 +1,5 @@
 from src.tg_client.auth import AuthManager
+from telethon.errors import SessionPasswordNeededError
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 
@@ -30,14 +31,20 @@ class ClientPool:
         await client.connect()
 
         if not await client.is_user_authorized():
-            logger.warning(f"Аккаунт {account.phone} не авторизован, ждём код...")
-            # request_code вернёт Future, который бот разрешит вводом кода
+            logger.warning(f"Аккаунт {account.phone} не авторизован, запрашиваем код...")
+            # 1. Сначала отправляем запрос кода В TELEGRAM (SMS/сообщение на телефон)
+            await client.send_code_request(account.phone)
+            # 2. Потом ждём код от пользователя через бота
             code = await AuthManager.request_code(account.id)
-            # client.start подставит номер и код автоматически
-            await client.start(
-                phone=lambda: account.phone,
-                code_callback=lambda: code,
-            )
+            # 3. Входим с полученным кодом
+            try:
+                await client.sign_in(account.phone, code)
+            except SessionPasswordNeededError:
+                logger.warning(f"Аккаунт {account.phone}: требуется 2FA-пароль")
+                # 4. Ждём пароль через бота
+                password = await AuthManager.request_password(account.id)
+                # 5. Завершаем вход паролем (код уже принят)
+                await client.sign_in(password=password)
             # сессия авторизована — сохраняем в БД для следующих запусков
             await ClientPool.save_session(account, client)
         else:

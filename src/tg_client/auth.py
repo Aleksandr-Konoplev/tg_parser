@@ -8,6 +8,7 @@ from src.utils.logger import logger
 # Словарь: account_id → Future. Когда парсеру нужен код от аккаунта,
 # он создаёт Future и ждёт, пока бот не разрешит её (вводом кода юзером).
 _pending_codes: dict[int, asyncio.Future] = {}
+_pending_passwords: dict[int, asyncio.Future] = {}
 
 
 class AuthManager:
@@ -33,4 +34,27 @@ class AuthManager:
             return False
         future.set_result(code)
         logger.info(f"Код получен для аккаунта {account_id}")
+        return True
+
+    # Запросить 2FA-пароль. Бот покажет промпт, юзер отправит пароль.
+    @staticmethod
+    async def request_password(account_id: int) -> str:
+        future = asyncio.get_running_loop().create_future()
+        _pending_passwords[account_id] = future
+        await bot.send_message(
+            ADMIN_CHAT_ID,
+            f"🔑 Для аккаунта #{account_id} включена двухфакторная авторизация.\n"
+            f"Отправьте пароль в ответ:",
+        )
+        logger.info(f"Запрошен 2FA-пароль для аккаунта {account_id}")
+        return await future  # ждём пароль от пользователя
+
+    # Бот вызывает, когда юзер прислал пароль. Разрешает Future.
+    @staticmethod
+    async def submit_password(account_id: int, password: str) -> bool:
+        future = _pending_passwords.pop(account_id, None)
+        if not future or future.done():
+            return False
+        future.set_result(password)
+        logger.info(f"Пароль получен для аккаунта {account_id}")
         return True
