@@ -2,6 +2,7 @@
 {% block title %}Аккаунты — tg-parser{% endblock %}
 {% block content %}
 <h1 class="mb-4"><i class="bi-person-lines-fill me-2"></i>Аккаунты Telegram</h1>
+{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
 
 <!-- Форма создания аккаунта -->
 <div class="card mb-4">

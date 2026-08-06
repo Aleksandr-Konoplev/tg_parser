@@ -5,6 +5,7 @@
 """
 from src.db.models import Channel, WebUser
 from src.utils.logger import logger
+from tortoise.expressions import Q
 
 
 class ChannelService:
@@ -55,29 +56,30 @@ class ChannelService:
         return await Channel.get_or_none(telegram_id=telegram_id)
 
     @staticmethod
-    async def get_active(user_id: int | None = None):
+    async def get_active(user_id: int | None = None, include_common: bool = False):
         """
         Получить активные каналы.
-        Если user_id передан — только свои + общие.
+        Если include_common=True — свои + общие.
         """
         if user_id is None:
             return await Channel.filter(is_active=True).order_by("id")
-        return await Channel.filter(
-            is_active=True,
-            user_id__in=[user_id, None]
-        ).order_by("id")
+        query = Q(user_id=user_id)
+        if include_common:
+            query |= Q(user_id__isnull=True)
+        return await Channel.filter(Q(is_active=True) & query).order_by("id")
 
     @staticmethod
-    async def get_all(user_id: int | None = None):
+    async def get_all(user_id: int | None = None, include_common: bool = False):
         """
         Получить все каналы.
-        Если user_id передан — только свои + общие.
+        Если include_common=True — свои + общие.
         """
         if user_id is None:
             return await Channel.all().order_by("id")
-        return await Channel.filter(
-            user_id__in=[user_id, None]
-        ).order_by("id")
+        query = Q(user_id=user_id)
+        if include_common:
+            query |= Q(user_id__isnull=True)
+        return await Channel.filter(query).order_by("id")
 
     @staticmethod
     async def update(channel_id: int, **fields):

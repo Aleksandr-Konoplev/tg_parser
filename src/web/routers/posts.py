@@ -33,7 +33,7 @@ async def posts_list(
     Показываем только посты из задач, доступных пользователю.
     """
     templates = request.app.state.templates
-    user_tasks = await RequestService.get_all(user_id=user.id)
+    user_tasks = await RequestService.get_all(user_id=user.id, include_common=user.is_admin)
     user_task_ids = [t.id for t in user_tasks]
 
     if task_id is not None and task_id not in user_task_ids:
@@ -101,10 +101,14 @@ async def post_detail_page(request: Request, post_id: int, user: WebUser = Depen
     if not post:
         raise HTTPException(status_code=404, detail="Пост не найден")
 
-    if post.search_request_id:
-        scope = await get_user_scope(user)
-        task = await SearchRequest.get_or_none(id=post.search_request_id)
-        if task and task.user_id not in scope:
+    scope = await get_user_scope(user)
+    task = await SearchRequest.get_or_none(id=post.search_request_id) if post.search_request_id else None
+    if task:
+        if task.user_id not in scope:
+            raise HTTPException(status_code=403, detail="Нет доступа к этому посту")
+    else:
+        channel = await post.channel
+        if channel.user_id not in scope:
             raise HTTPException(status_code=403, detail="Нет доступа к этому посту")
 
     return templates.TemplateResponse(

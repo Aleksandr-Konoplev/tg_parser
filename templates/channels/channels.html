@@ -2,6 +2,7 @@
 {% block title %}Каналы — tg-parser{% endblock %}
 {% block content %}
 <h1 class="mb-4"><i class="bi-megaphone me-2"></i>Каналы</h1>
+{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
 
 <!-- Форма создания канала -->
 <div class="card mb-4">

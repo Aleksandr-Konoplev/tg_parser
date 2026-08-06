@@ -11,7 +11,6 @@ from src.db.models import WebUser, TelegramAccount, Post
 from src.services.account import AccountService
 from src.services.channel import ChannelService
 from src.services.request import RequestService
-from src.services.parser import ParserManager
 from src.utils.logger import logger
 
 router = APIRouter()
@@ -21,7 +20,7 @@ router = APIRouter()
 async def tasks_list(request: Request, user: WebUser = Depends(get_current_user)):
     """Список задач парсинга пользователя."""
     templates = request.app.state.templates
-    tasks = await RequestService.get_all(user_id=user.id)
+    tasks = await RequestService.get_all(user_id=user.id, include_common=user.is_admin)
     tasks_data = []
     for t in tasks:
         channels = await t.channels.all()
@@ -69,12 +68,13 @@ async def task_detail(request: Request, task_id: int, user: WebUser = Depends(ge
 async def task_create_form(request: Request, user: WebUser = Depends(get_current_user)):
     """Форма создания новой задачи."""
     templates = request.app.state.templates
-    accounts = await AccountService.get_all(user_id=user.id)
-    channels = await ChannelService.get_active(user_id=user.id)
+    accounts = await AccountService.get_all(user_id=user.id, include_common=user.is_admin)
+    channels = await ChannelService.get_active(user_id=user.id, include_common=user.is_admin)
     return templates.TemplateResponse(
         request,
         "tasks/task_create.html",
-        {"request": request, "user": user, "accounts": accounts, "channels": channels},
+        {"request": request, "user": user, "accounts": accounts, "channels": channels,
+         "error": request.query_params.get("error")},
     )
 
 
@@ -127,8 +127,7 @@ async def task_start(
     if task.user_id not in scope:
         raise HTTPException(status_code=403, detail="Нет доступа")
     await RequestService.set_status(task_id, "running")
-    ParserManager.start_request(task_id)
-    logger.info(f"Задача {task_id} запущена пользователем {user.telegram_id}")
+    logger.info(f"Задача {task_id} поставлена на запуск пользователем {user.telegram_id}")
     return RedirectResponse(url="/tasks", status_code=303)
 
 
@@ -144,7 +143,6 @@ async def task_pause(
     if task.user_id not in scope:
         raise HTTPException(status_code=403, detail="Нет доступа")
     await RequestService.set_status(task_id, "paused")
-    await ParserManager.stop_request(task_id)
     return RedirectResponse(url="/tasks", status_code=303)
 
 
@@ -160,7 +158,6 @@ async def task_stop(
     if task.user_id not in scope:
         raise HTTPException(status_code=403, detail="Нет доступа")
     await RequestService.set_status(task_id, "stopped")
-    await ParserManager.stop_request(task_id)
     return RedirectResponse(url="/tasks", status_code=303)
 
 
@@ -175,6 +172,5 @@ async def task_delete(
     scope = await get_user_scope(user)
     if task.user_id not in scope:
         raise HTTPException(status_code=403, detail="Нет доступа")
-    await ParserManager.stop_request(task_id)
     await RequestService.delete(task_id)
     return RedirectResponse(url="/tasks", status_code=303)

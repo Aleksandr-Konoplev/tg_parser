@@ -2,6 +2,7 @@
 {% block title %}Создать задачу — tg-parser{% endblock %}
 {% block content %}
 <h1 class="mb-4"><i class="bi-plus-circle me-2"></i>Создать задачу парсинга</h1>
+{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
 
 <div class="row">
     <div class="col-md-8">

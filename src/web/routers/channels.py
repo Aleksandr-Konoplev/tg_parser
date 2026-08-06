@@ -4,6 +4,7 @@
 """
 from fastapi import APIRouter, Request, Form, HTTPException, Depends
 from fastapi.responses import RedirectResponse, HTMLResponse
+from tortoise.expressions import Q
 
 from src.web.common import get_user_scope
 from src.web.auth import get_current_user
@@ -20,12 +21,13 @@ router = APIRouter()
 async def channels_list(request: Request, user: WebUser = Depends(get_current_user)):
     """Список каналов пользователя."""
     templates = request.app.state.templates
-    accounts = await AccountService.get_all(user_id=user.id)
-    channels = await ChannelService.get_all(user_id=user.id)
+    accounts = await AccountService.get_all(user_id=user.id, include_common=user.is_admin)
+    channels = await ChannelService.get_all(user_id=user.id, include_common=user.is_admin)
     return templates.TemplateResponse(
         request,
         "channels/channels.html",
-        {"request": request, "user": user, "channels": channels, "accounts": accounts},
+        {"request": request, "user": user, "channels": channels, "accounts": accounts,
+         "error": request.query_params.get("error")},
     )
 
 
@@ -39,8 +41,14 @@ async def channel_detail(request: Request, channel_id: int, user: WebUser = Depe
     scope = await get_user_scope(user)
     if channel.user_id not in scope:
         raise HTTPException(status_code=403, detail="Нет доступа к этому каналу")
-    tasks = await SearchRequest.filter(channels__channel=channel_id, user_id__in=scope)
-    posts_count = await Post.filter(channel_id=channel_id).count()
+    owner_filter = Q(user_id=user.id)
+    if user.is_admin:
+        owner_filter |= Q(user_id__isnull=True)
+    tasks = await SearchRequest.filter(Q(channels__id=channel_id) & owner_filter)
+    task_ids = [task.id for task in tasks]
+    posts_count = await Post.filter(
+        Q(channel_id=channel_id) & Q(search_request_id__in=task_ids)
+    ).count() if task_ids else 0
     return templates.TemplateResponse(
         request,
         "channels/channel_detail.html",

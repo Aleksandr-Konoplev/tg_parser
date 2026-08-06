@@ -5,6 +5,7 @@
 """
 from src.db.models import SearchRequest, Channel, WebUser
 from src.utils.logger import logger
+from tortoise.expressions import Q
 
 
 class RequestService:
@@ -38,16 +39,17 @@ class RequestService:
         return await SearchRequest.get_or_none(id=request_id)
 
     @staticmethod
-    async def get_all(user_id: int | None = None):
+    async def get_all(user_id: int | None = None, include_common: bool = False):
         """
         Получить все задачи.
-        Если user_id передан — только свои + общие.
+        Если include_common=True — свои + общие.
         """
         if user_id is None:
             return await SearchRequest.all().order_by("-id")
-        return await SearchRequest.filter(
-            user_id__in=[user_id, None]
-        ).order_by("-id")
+        query = Q(user_id=user_id)
+        if include_common:
+            query |= Q(user_id__isnull=True)
+        return await SearchRequest.filter(query).order_by("-id")
 
     @staticmethod
     async def get_running():

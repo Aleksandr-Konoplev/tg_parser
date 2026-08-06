@@ -4,6 +4,7 @@
 """
 from fastapi import APIRouter, Request, Form, HTTPException, Depends
 from fastapi.responses import RedirectResponse, HTMLResponse
+from tortoise.expressions import Q
 
 from src.web.common import get_user_scope
 from src.web.auth import get_current_user
@@ -18,11 +19,12 @@ router = APIRouter()
 async def accounts_list(request: Request, user: WebUser = Depends(get_current_user)):
     """Список Telegram-аккаунтов пользователя."""
     templates = request.app.state.templates
-    accounts = await AccountService.get_all(user_id=user.id)
+    accounts = await AccountService.get_all(user_id=user.id, include_common=user.is_admin)
     return templates.TemplateResponse(
         request,
         "accounts/accounts.html",
-        {"request": request, "user": user, "accounts": accounts},
+        {"request": request, "user": user, "accounts": accounts,
+         "error": request.query_params.get("error")},
     )
 
 
@@ -36,7 +38,10 @@ async def account_detail(request: Request, account_id: int, user: WebUser = Depe
     scope = await get_user_scope(user)
     if account.user_id not in scope:
         raise HTTPException(status_code=403, detail="Нет доступа к этому аккаунту")
-    tasks = await SearchRequest.filter(account_id=account_id, user_id__in=scope)
+    owner_filter = Q(user_id=user.id)
+    if user.is_admin:
+        owner_filter |= Q(user_id__isnull=True)
+    tasks = await SearchRequest.filter(Q(account_id=account_id) & owner_filter)
     return templates.TemplateResponse(
         request,
         "accounts/account_detail.html",

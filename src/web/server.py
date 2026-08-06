@@ -16,6 +16,7 @@ from fastapi.templating import Jinja2Templates
 from src.web.common import get_user_scope, BASE_DIR
 from src.web.auth import get_current_user
 from src.db.models import WebUser, TelegramAccount, Channel, SearchRequest, Post
+from tortoise.expressions import Q
 
 # ───────────────────── Создание приложения ─────────────────────
 
@@ -63,9 +64,12 @@ async def dashboard(request: Request, user: WebUser = Depends(get_current_user))
     """Главная страница со сводной статистикой пользователя."""
     scope = await get_user_scope(user)
 
-    accounts_count = await TelegramAccount.filter(user_id__in=scope).count()
-    channels_count = await Channel.filter(user_id__in=scope).count()
-    tasks = await SearchRequest.filter(user_id__in=scope)
+    owner_filter = Q(user_id=user.id)
+    if user.is_admin:
+        owner_filter |= Q(user_id__isnull=True)
+    accounts_count = await TelegramAccount.filter(owner_filter).count()
+    channels_count = await Channel.filter(owner_filter).count()
+    tasks = await SearchRequest.filter(owner_filter)
 
     task_ids = [t.id for t in tasks]
     if task_ids:

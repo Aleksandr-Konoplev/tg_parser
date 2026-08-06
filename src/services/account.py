@@ -5,6 +5,7 @@
 """
 from src.db.models import TelegramAccount, WebUser
 from src.utils.logger import logger
+from tortoise.expressions import Q
 
 
 class AccountService:
@@ -39,17 +40,18 @@ class AccountService:
         return await TelegramAccount.get_or_none(id=account_id)
 
     @staticmethod
-    async def get_all(user_id: int | None = None):
+    async def get_all(user_id: int | None = None, include_common: bool = False):
         """
         Все аккаунты, доступные пользователю.
         Если user_id=None — все аккаунты.
-        Если user_id передан — свои + общие (user_id=None).
+        Если include_common=True — свои + общие (user_id=None).
         """
         if user_id is None:
             return await TelegramAccount.all().order_by("id")
-        return await TelegramAccount.filter(
-            user_id__in=[user_id, None]
-        ).order_by("id")
+        query = Q(user_id=user_id)
+        if include_common:
+            query |= Q(user_id__isnull=True)
+        return await TelegramAccount.filter(query).order_by("id")
 
     @staticmethod
     async def update(account_id: int, **fields):
