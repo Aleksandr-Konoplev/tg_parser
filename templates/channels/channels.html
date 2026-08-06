@@ -61,7 +61,7 @@
                         <td>{{ ch.title }}</td>
                         <td>
                             {% if ch.username %}
-                            <a href="https://t.me/{{ ch.username }}" target="_blank">@{{ ch.username }}</a>
+                            <a href="/channels/{{ ch.id }}" title="Детали">@{{ ch.username }}</a>
                             {% else %}
                             <span class="text-secondary">—</span>
                             {% endif %}
@@ -74,9 +74,6 @@
                         </td>
                         <td>
                             <div class="btn-group btn-group-sm">
-                                <a href="/channels/{{ ch.id }}" class="btn btn-outline-info" title="Детали">
-                                    <i class="bi-eye"></i>
-                                </a>
                                 <form method="post" action="/channels/{{ ch.id }}/toggle" class="d-inline">
                                     <button type="submit" class="btn btn-outline-{{ 'warning' if ch.is_active else 'success' }}"
                                             title="{{ 'Отключить' if ch.is_active else 'Включить' }}">

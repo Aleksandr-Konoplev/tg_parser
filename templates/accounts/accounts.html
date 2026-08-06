@@ -56,7 +56,7 @@
                     {% for acc in accounts %}
                     <tr>
                         <td>{{ acc.id }}</td>
-                        <a href="/accounts/{{ acc.id }}" class="btn btn-outline-info" title="Детали"><td>{{ acc.phone }}</td></a>
+                        <td><a href="/accounts/{{ acc.id }}">{{ acc.phone }}</a></td>
                         <td>{{ acc.api_id }}</td>
                         <td>
                             {% if acc.session_str %}

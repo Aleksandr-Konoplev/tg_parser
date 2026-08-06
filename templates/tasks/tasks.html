@@ -46,9 +46,6 @@
                         <td>{{ task.last_run_at.strftime('%d.%m.%Y %H:%M') if task.last_run_at else '—' }}</td>
                         <td>
                             <div class="btn-group btn-group-sm">
-                                <a href="/tasks/{{ task.id }}" class="btn btn-outline-info" title="Детали">
-                                    <i class="bi-eye"></i>
-                                </a>
                                 {% if task.status != 'running' %}
                                 <form method="post" action="/tasks/{{ task.id }}/start" class="d-inline">
                                     <button type="submit" class="btn btn-outline-success" title="Запустить">
