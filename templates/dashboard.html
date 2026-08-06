@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Дашборд — tg-parser{% endblock %}
+{% block content %}
+<h1 class="mb-4"><i class="bi-speedometer2 me-2"></i>Дашборд</h1>
+
+<!-- Карточки статистики -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card text-bg-primary h-100">
+            <div class="card-body text-center">
+                <i class="bi-person-lines-fill fs-1"></i>
+                <h5 class="card-title mt-2">Аккаунты</h5>
+                <p class="card-text fs-3 fw-bold">{{ stats.accounts_count }}</p>
+            </div>
+            <div class="card-footer bg-transparent border-0 text-center">
+                <a href="/accounts" class="text-white">Подробнее <i class="bi-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-bg-success h-100">
+            <div class="card-body text-center">
+                <i class="bi-megaphone fs-1"></i>
+                <h5 class="card-title mt-2">Каналы</h5>
+                <p class="card-text fs-3 fw-bold">{{ stats.channels_count }}</p>
+            </div>
+            <div class="card-footer bg-transparent border-0 text-center">
+                <a href="/channels" class="text-white">Подробнее <i class="bi-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-bg-warning h-100">
+            <div class="card-body text-center">
+                <i class="bi-list-task fs-1"></i>
+                <h5 class="card-title mt-2">Задачи</h5>
+                <p class="card-text fs-3 fw-bold">{{ stats.tasks_count }}</p>
+            </div>
+            <div class="card-footer bg-transparent border-0 text-center">
+                <a href="/tasks" class="text-white">Подробнее <i class="bi-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-bg-info h-100">
+            <div class="card-body text-center">
+                <i class="bi-file-text fs-1"></i>
+                <h5 class="card-title mt-2">Посты</h5>
+                <p class="card-text fs-3 fw-bold">{{ stats.posts_count }}</p>
+            </div>
+            <div class="card-footer bg-transparent border-0 text-center">
+                <a href="/posts" class="text-white">Подробнее <i class="bi-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Последние посты -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi-clock-history me-2"></i>Последние посты</h5>
+        <a href="/posts" class="btn btn-sm btn-outline-secondary">Все посты</a>
+    </div>
+    <div class="card-body">
+        {% if recent_posts %}
+        <div class="list-group list-group-flush">
+            {% for post in recent_posts %}
+            <a href="/posts/{{ post.id }}" class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1">{{ post.text[:100] ~ '...' if post.text and post.text|length > 100 else post.text or '(без текста)' }}</h6>
+                    <small class="text-nowrap ms-2">{{ post.parsed_at.strftime('%d.%m %H:%M') if post.parsed_at else '' }}</small>
+                </div>
+                <small class="text-secondary">
+                    <i class="bi-megaphone me-1"></i>{{ post.channel.title if post.channel else '—' }}
+                    {% if post.views is not none %} · 👁 {{ post.views }}{% endif %}
+                </small>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-secondary mb-0">Пока нет сохранённых постов.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

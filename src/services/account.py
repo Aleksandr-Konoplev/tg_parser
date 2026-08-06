@@ -1,42 +1,59 @@
-from src.db.models import TelegramAccount
+"""
+Сервис для работы с TelegramAccount.
+Поддерживает изоляцию по user_id: каждый пользователь веба видит только свои аккаунты.
+Если user_id=None (вызов из бота), то не фильтрует по владельцу.
+"""
+from src.db.models import TelegramAccount, WebUser
 from src.utils.logger import logger
 
 
-# Класс-сервис: инкапсулирует все операции с аккаунтами.
-# Методы статические — вызываются без создания экземпляра:
-#   AccountService.create(...) вместо service = AccountService(); service.create(...)
 class AccountService:
 
-    # Создание аккаунта. Вернёт (аккаунт, ошибка).
-    # Кортеж — чтобы бот мог сразу показать ошибку, не ловя исключения.
     @staticmethod
-    async def create(phone: str, api_id: int, api_hash: str):
+    async def create(phone: str, api_id: int, api_hash: str, user_id: int | None = None):
+        """
+        Создать аккаунт для парсинга.
+        Если user_id передан — привязывает аккаунт к конкретному пользователю веба.
+        Если user_id=None — аккаунт считается общим (старый админ).
+        """
         try:
-            account = await TelegramAccount.create(
-                phone=phone,
-                api_id=api_id,
-                api_hash=api_hash,
-            )
+            kwargs = {
+                "phone": phone,
+                "api_id": api_id,
+                "api_hash": api_hash,
+            }
+            if user_id is not None:
+                user = await WebUser.get_or_none(id=user_id)
+                if user:
+                    kwargs["user"] = user
+            account = await TelegramAccount.create(**kwargs)
             logger.info(f"Аккаунт создан: {phone}")
             return account, None
         except Exception as e:
-            # Сюда попадает и IntegrityError (phone уже есть) и любые другие
             logger.error(f"Ошибка создания аккаунта {phone}: {e}")
             return None, str(e)
 
-    # Достать один аккаунт по id. Вернёт None если нет
     @staticmethod
     async def get(account_id: int):
+        """Достать аккаунт по ID. Возвращает None если нет."""
         return await TelegramAccount.get_or_none(id=account_id)
 
-    # Все аккаунты prefetch — для related_name (не используется, но удобно держать шаблон)
     @staticmethod
-    async def get_all():
-        return await TelegramAccount.all().order_by("id")
+    async def get_all(user_id: int | None = None):
+        """
+        Все аккаунты, доступные пользователю.
+        Если user_id=None — все аккаунты.
+        Если user_id передан — свои + общие (user_id=None).
+        """
+        if user_id is None:
+            return await TelegramAccount.all().order_by("id")
+        return await TelegramAccount.filter(
+            user_id__in=[user_id, None]
+        ).order_by("id")
 
-    # Обновить поля аккаунта (только переданные не-None)
     @staticmethod
     async def update(account_id: int, **fields):
+        """Обновить поля аккаунта (только переданные не-None)."""
         account = await AccountService.get(account_id)
         if not account:
             return None
@@ -47,22 +64,28 @@ class AccountService:
         logger.info(f"Аккаунт {account_id} обновлён")
         return account
 
-    # Включить/выключить аккаунт (не удаляем — чтобы не терять сессии)
     @staticmethod
     async def set_active(account_id: int, is_active: bool):
+        """Включить/выключить аккаунт (не удаляем — сохраняем сессии).
+           При отключении закрывает Telegram-клиент, если он был создан."""
         account = await AccountService.get(account_id)
         if not account:
             return None
         account.is_active = is_active
         await account.save()
+        if not is_active:
+            from src.tg_client.client import ClientPool
+            await ClientPool.remove_client(account_id)
+        logger.info(f"Аккаунт {account_id} {'активирован' if is_active else 'отключён'}")
         return account
 
-    # Полное удаление аккаунта. ВАЖНО: удалит и связанные SearchRequest (ON DELETE CASCADE)
     @staticmethod
     async def delete(account_id: int):
+        """Мягкое удаление: отключает аккаунт (is_active=False), сохраняя данные."""
         account = await AccountService.get(account_id)
         if not account:
             return False
-        await account.delete()
-        logger.info(f"Аккаунт {account_id} удалён")
+        account.is_active = False
+        await account.save(update_fields=["is_active"])
+        logger.info(f"Аккаунт {account_id} отключён (soft delete)")
         return True

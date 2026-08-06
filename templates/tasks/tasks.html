@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Задачи — tg-parser{% endblock %}
+{% block content %}
+<h1 class="mb-4"><i class="bi-list-task me-2"></i>Задачи парсинга</h1>
+
+<a href="/tasks/create" class="btn btn-primary mb-4">
+    <i class="bi-plus-lg me-1"></i>Создать задачу
+</a>
+
+<!-- Список задач -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi-list me-2"></i>Список задач</h5>
+    </div>
+    <div class="card-body p-0">
+        {% if tasks %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>#</th>
+                        <th>Название</th>
+                        <th>Аккаунт</th>
+                        <th>Каналы</th>
+                        <th>Интервал</th>
+                        <th>Статус</th>
+                        <th>Последний запуск</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                    <tr>
+                        <td>{{ task.id }}</td>
+                        <td><a href="/tasks/{{ task.id }}">{{ task.name }}</a></td>
+                        <td>{{ task.account.phone if task.account else '—' }}</td>
+                        <td>{{ task.channel_count }}</td>
+                        <td>{{ task.interval_sec }}с</td>
+                        <td>
+                            <span class="badge {% if task.status == 'running' %}bg-success{% elif task.status == 'paused' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                {% if task.status == 'running' %}Запущена
+                                {% elif task.status == 'paused' %}Пауза
+                                {% else %}Остановлена{% endif %}
+                            </span>
+                        </td>
+                        <td>{{ task.last_run_at.strftime('%d.%m.%Y %H:%M') if task.last_run_at else '—' }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="/tasks/{{ task.id }}" class="btn btn-outline-info" title="Детали">
+                                    <i class="bi-eye"></i>
+                                </a>
+                                {% if task.status != 'running' %}
+                                <form method="post" action="/tasks/{{ task.id }}/start" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-success" title="Запустить">
+                                        <i class="bi-play-fill"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% if task.status == 'running' %}
+                                <form method="post" action="/tasks/{{ task.id }}/pause" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-warning" title="Пауза">
+                                        <i class="bi-pause-fill"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% if task.status != 'stopped' %}
+                                <form method="post" action="/tasks/{{ task.id }}/stop" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-secondary" title="Остановить">
+                                        <i class="bi-stop-fill"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                                <form method="post" action="/tasks/{{ task.id }}/delete" class="d-inline"
+                                      onsubmit="return confirm('Удалить задачу {{ task.name }}?')">
+                                    <button type="submit" class="btn btn-outline-danger" title="Удалить">
+                                        <i class="bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-secondary p-3 mb-0">Нет задач. <a href="/tasks/create">Создайте первую</a>.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

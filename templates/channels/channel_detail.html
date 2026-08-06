@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Канал {{ channel.title }} — tg-parser{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <h1><i class="bi-megaphone me-2"></i>Канал {{ channel.title }}</h1>
+    <a href="/channels" class="btn btn-outline-secondary">
+        <i class="bi-arrow-left me-1"></i>Назад
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Информация</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr>
+                        <th class="text-secondary">ID:</th>
+                        <td>{{ channel.id }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Название:</th>
+                        <td>{{ channel.title }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Username:</th>
+                        <td>
+                            {% if channel.username %}
+                            <a href="https://t.me/{{ channel.username }}" target="_blank">@{{ channel.username }}</a>
+                            {% else %}
+                            <span class="text-secondary">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Telegram ID:</th>
+                        <td><code>{{ channel.telegram_id }}</code></td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Статус:</th>
+                        <td>
+                            <span class="badge {% if channel.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ 'Активен' if channel.is_active else 'Отключён' }}
+                            </span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Задачи с этим каналом</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if tasks %}
+                <div class="list-group list-group-flush">
+                    {% for task in tasks %}
+                    <a href="/tasks/{{ task.id }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        {{ task.name }}
+                        <span class="badge {% if task.status == 'running' %}bg-success{% elif task.status == 'paused' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                            {{ task.status }}
+                        </span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-secondary p-3 mb-0">Нет задач с этим каналом.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Статистика постов</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr>
+                        <th class="text-secondary">Всего постов:</th>
+                        <td>{{ posts_count }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

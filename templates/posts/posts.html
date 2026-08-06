@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Посты — tg-parser{% endblock %}
+{% block content %}
+<h1 class="mb-4"><i class="bi-file-text me-2"></i>Посты</h1>
+
+<!-- Фильтры -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi-funnel me-2"></i>Фильтры</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" action="/posts" class="row g-3">
+            <div class="col-md-3">
+                <label for="task_id" class="form-label">Задача</label>
+                <select class="form-select" id="task_id" name="task_id">
+                    <option value="">Все задачи</option>
+                    {% for task in tasks %}
+                    <option value="{{ task.id }}" {% if filters.task_id|string == task.id|string %}selected{% endif %}>
+                        {{ task.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="date_from" class="form-label">Дата от</label>
+                <input type="datetime-local" class="form-control" id="date_from" name="date_from" value="{{ filters.date_from or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label for="date_to" class="form-label">Дата до</label>
+                <input type="datetime-local" class="form-control" id="date_to" name="date_to" value="{{ filters.date_to or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label for="search" class="form-label">Поиск по тексту</label>
+                <input type="text" class="form-control" id="search" name="search" value="{{ filters.search or '' }}" placeholder="текст...">
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi-search me-1"></i>Применить
+                </button>
+                <a href="/posts" class="btn btn-outline-secondary">Сбросить</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Список постов -->
+{% if posts %}
+<div class="list-group">
+    {% for post in posts %}
+    <a href="/posts/{{ post.id }}" class="list-group-item list-group-item-action">
+        <div class="d-flex w-100 justify-content-between">
+            <h6 class="mb-1">
+                {% if post.search_request %}
+                <span class="badge bg-info me-2">{{ post.search_request.name }}</span>
+                {% endif %}
+                {{ post.text[:150] ~ '...' if post.text and post.text|length > 150 else post.text or '(без текста)' }}
+            </h6>
+            <small class="text-nowrap ms-2">{{ post.posted_at.strftime('%d.%m.%Y %H:%M') if post.posted_at else '' }}</small>
+        </div>
+        <small class="text-secondary">
+            <i class="bi-megaphone me-1"></i>{{ post.channel.title if post.channel else '—' }}
+            {% if post.views is not none %} · 👁 {{ post.views }}{% endif %}
+            {% if post.forwards is not none %} · 🔄 {{ post.forwards }}{% endif %}
+        </small>
+    </a>
+    {% endfor %}
+</div>
+
+<!-- Пагинация -->
+{% if total_pages > 1 %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page > 1 %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page - 1 }}{% if filters.task_id %}&task_id={{ filters.task_id }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}{% if filters.search %}&search={{ filters.search }}{% endif %}">
+                <i class="bi-chevron-left"></i>
+            </a>
+        </li>
+        {% endif %}
+        {% for p in range(1, total_pages + 1) %}
+        <li class="page-item {% if p == page %}active{% endif %}">
+            <a class="page-link" href="?page={{ p }}{% if filters.task_id %}&task_id={{ filters.task_id }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}{% if filters.search %}&search={{ filters.search }}{% endif %}">
+                {{ p }}
+            </a>
+        </li>
+        {% endfor %}
+        {% if page < total_pages %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page + 1 }}{% if filters.task_id %}&task_id={{ filters.task_id }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}{% if filters.search %}&search={{ filters.search }}{% endif %}">
+                <i class="bi-chevron-right"></i>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi-inbox fs-1 text-secondary"></i>
+        <p class="text-secondary mt-2">Посты не найдены. Попробуйте изменить фильтры.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

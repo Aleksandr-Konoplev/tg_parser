@@ -5,6 +5,9 @@ from telethon.sessions import StringSession
 
 from src.db.models import TelegramAccount
 from src.utils.logger import logger
+import asyncio
+from src.bot.dispatcher import bot
+from src.config import ADMIN_CHAT_ID
 
 
 _client_pool: dict[int, TelegramClient] = {}
@@ -15,37 +18,57 @@ class ClientPool:
     # Получить клиент для аккаунта. Создаёт и авторизует, если ещё нет.
     @staticmethod
     async def get_client(account: TelegramAccount) -> TelegramClient | None:
-        # Уже создавали — возвращаем как есть
         if account.id in _client_pool:
             return _client_pool[account.id]
 
-        # Создаём новый клиент Telethon
-        # StringSession — хранит сессию как строку (мы кладём её в БД)
         client = TelegramClient(
             StringSession(account.session_str),
             account.api_id,
             account.api_hash,
         )
-
-        # Подключаемся к серверу Telegram
         await client.connect()
 
         if not await client.is_user_authorized():
             logger.warning(f"Аккаунт {account.phone} не авторизован, запрашиваем код...")
-            # 1. Сначала отправляем запрос кода В TELEGRAM (SMS/сообщение на телефон)
             await client.send_code_request(account.phone)
-            # 2. Потом ждём код от пользователя через бота
-            code = await AuthManager.request_code(account.id)
-            # 3. Входим с полученным кодом
+
+            # Шаг 1: запрашиваем код с таймаутом 5 минут
+            try:
+                code = await AuthManager.request_code(account.id)
+            except asyncio.TimeoutError:
+                logger.error(f"Таймаут ожидания кода для аккаунта {account.phone}")
+                await client.disconnect()
+                await bot.send_message(
+                    ADMIN_CHAT_ID,
+                    f"⏱ Таймаут авторизации аккаунта {account.phone} — код не получен за 5 минут",
+                )
+                return None
+            except Exception as e:
+                logger.error(f"Ошибка запроса кода для {account.phone}: {e}")
+                await client.disconnect()
+                return None
+
+            # Шаг 2: входим с кодом
             try:
                 await client.sign_in(account.phone, code)
             except SessionPasswordNeededError:
                 logger.warning(f"Аккаунт {account.phone}: требуется 2FA-пароль")
-                # 4. Ждём пароль через бота
-                password = await AuthManager.request_password(account.id)
-                # 5. Завершаем вход паролем (код уже принят)
-                await client.sign_in(password=password)
-            # сессия авторизована — сохраняем в БД для следующих запусков
+                try:
+                    password = await AuthManager.request_password(account.id)
+                    await client.sign_in(password=password)
+                except asyncio.TimeoutError:
+                    logger.error(f"Таймаут ожидания пароля для аккаунта {account.phone}")
+                    await client.disconnect()
+                    await bot.send_message(
+                        ADMIN_CHAT_ID,
+                        f"⏱ Таймаут 2FA-пароля для аккаунта {account.phone}",
+                    )
+                    return None
+                except Exception as e:
+                    logger.error(f"Ошибка запроса пароля: {e}")
+                    await client.disconnect()
+                    return None
+
             await ClientPool.save_session(account, client)
         else:
             logger.info(f"Аккаунт {account.phone} авторизован из сохранённой сессии")
@@ -66,10 +89,9 @@ class ClientPool:
     @staticmethod
     async def get_messages(account: TelegramAccount, channel_ref, limit: int = 50, offset_id: int | None = None):
         client = await ClientPool.get_client(account)
+        if client is None:
+            return []
 
-        # channel_ref — это username ("@channel") или числовой ID
-        # Telethon умеет оба варианта. Если передали число — используем напрямую,
-        # если строку — сначала резолвим entity.
         entity = channel_ref
         if isinstance(channel_ref, str):
             entity = await client.get_entity(channel_ref)
@@ -81,6 +103,14 @@ class ClientPool:
         # get_messages возвращает список сообщений от новых к старым
         messages = await client.get_messages(entity, **kwargs)
         return messages
+
+    @staticmethod
+    async def remove_client(account_id: int):
+        """Закрыть и удалить клиент из пула (например, при отключении аккаунта)."""
+        client = _client_pool.pop(account_id, None)
+        if client:
+            await client.disconnect()
+            logger.info(f"Клиент аккаунта {account_id} закрыт")
 
     # Закрыть все клиенты (вызываем при остановке приложения)
     @staticmethod

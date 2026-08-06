@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Аккаунт {{ account.phone }} — tg-parser{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <h1><i class="bi-person me-2"></i>Аккаунт {{ account.phone }}</h1>
+    <a href="/accounts" class="btn btn-outline-secondary">
+        <i class="bi-arrow-left me-1"></i>Назад
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Информация</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr>
+                        <th class="text-secondary">ID:</th>
+                        <td>{{ account.id }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Телефон:</th>
+                        <td>{{ account.phone }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">API ID:</th>
+                        <td>{{ account.api_id }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Сессия:</th>
+                        <td>
+                            {% if account.session_str %}
+                            <span class="badge bg-success">Авторизован</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">Ожидает авторизации</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Статус:</th>
+                        <td>
+                            <span class="badge {% if account.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ 'Активен' if account.is_active else 'Отключён' }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Создан:</th>
+                        <td>{{ account.created_at.strftime('%d.%m.%Y %H:%M') if account.created_at else '—' }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Задачи с этим аккаунтом</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if tasks %}
+                <div class="list-group list-group-flush">
+                    {% for task in tasks %}
+                    <a href="/tasks/{{ task.id }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        {{ task.name }}
+                        <span class="badge {% if task.status == 'running' %}bg-success{% elif task.status == 'paused' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                            {{ task.status }}
+                        </span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-secondary p-3 mb-0">Нет задач с этим аккаунтом.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

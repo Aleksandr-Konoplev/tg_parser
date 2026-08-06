@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Задача {{ task.name }} — tg-parser{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <h1><i class="bi-list-task me-2"></i>Задача «{{ task.name }}»</h1>
+    <a href="/tasks" class="btn btn-outline-secondary">
+        <i class="bi-arrow-left me-1"></i>Назад
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Информация</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr>
+                        <th class="text-secondary">ID:</th>
+                        <td>{{ task.id }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Название:</th>
+                        <td>{{ task.name }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Аккаунт:</th>
+                        <td>
+                            <a href="/accounts/{{ task.account.id }}">{{ task.account.phone if task.account else '—' }}</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Ключевые слова:</th>
+                        <td>{{ task.keywords or 'все посты' }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Интервал:</th>
+                        <td>{{ task.interval_sec }} сек ({{ (task.interval_sec / 60)|round(1) }} мин)</td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Лимит за запуск:</th>
+                        <td>{{ task.limit_per_run }} постов</td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Статус:</th>
+                        <td>
+                            <span class="badge fs-6 {% if task.status == 'running' %}bg-success{% elif task.status == 'paused' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                {% if task.status == 'running' %}Запущена
+                                {% elif task.status == 'paused' %}Пауза
+                                {% else %}Остановлена{% endif %}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Последний запуск:</th>
+                        <td>{{ task.last_run_at.strftime('%d.%m.%Y %H:%M:%S') if task.last_run_at else '—' }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Создана:</th>
+                        <td>{{ task.created_at.strftime('%d.%m.%Y %H:%M') if task.created_at else '—' }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-secondary">Уведомления:</th>
+                        <td>
+                            {% if task.notify_chat_id %}
+                            <span class="badge bg-info">Включены (chat_id: {{ task.notify_chat_id }})</span>
+                            {% else %}
+                            <span class="text-secondary">Отключены</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Кнопки управления -->
+        <div class="d-flex gap-2 mb-4">
+            {% if task.status != 'running' %}
+            <form method="post" action="/tasks/{{ task.id }}/start">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi-play-fill me-1"></i>Запустить
+                </button>
+            </form>
+            {% endif %}
+            {% if task.status == 'running' %}
+            <form method="post" action="/tasks/{{ task.id }}/pause">
+                <button type="submit" class="btn btn-warning">
+                    <i class="bi-pause-fill me-1"></i>Пауза
+                </button>
+            </form>
+            {% endif %}
+            {% if task.status != 'stopped' %}
+            <form method="post" action="/tasks/{{ task.id }}/stop">
+                <button type="submit" class="btn btn-secondary">
+                    <i class="bi-stop-fill me-1"></i>Остановить
+                </button>
+            </form>
+            {% endif %}
+            <form method="post" action="/tasks/{{ task.id }}/delete" onsubmit="return confirm('Удалить задачу?')">
+                <button type="submit" class="btn btn-danger">
+                    <i class="bi-trash me-1"></i>Удалить
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Каналы ({{ channels|length }})</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if channels %}
+                <div class="list-group list-group-flush">
+                    {% for ch in channels %}
+                    <a href="/channels/{{ ch.id }}" class="list-group-item list-group-item-action">
+                        <div class="d-flex justify-content-between">
+                            <span>{{ ch.title }}</span>
+                            {% if ch.username %}
+                            <small class="text-secondary">@{{ ch.username }}</small>
+                            {% endif %}
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-secondary p-3 mb-0">Нет каналов.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Посты</h5>
+            </div>
+            <div class="card-body">
+                <p class="fs-3 fw-bold mb-0">{{ posts_count }}</p>
+                <a href="/posts?task_id={{ task.id }}" class="btn btn-outline-primary btn-sm mt-2">
+                    <i class="bi-eye me-1"></i>Смотреть посты
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

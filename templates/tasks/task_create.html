@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Создать задачу — tg-parser{% endblock %}
+{% block content %}
+<h1 class="mb-4"><i class="bi-plus-circle me-2"></i>Создать задачу парсинга</h1>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="post" action="/tasks/create">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Название задачи</label>
+                        <input type="text" class="form-control" id="name" name="name"
+                               placeholder="Например: Крипта, Новости, ..." required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="account_id" class="form-label">Аккаунт для парсинга</label>
+                        <select class="form-select" id="account_id" name="account_id" required>
+                            <option value="">— выберите аккаунт —</option>
+                            {% for acc in accounts %}
+                            <option value="{{ acc.id }}">{{ acc.phone }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Каналы для парсинга</label>
+                        {% if channels %}
+                        <div class="list-group" style="max-height: 300px; overflow-y: auto;">
+                            {% for ch in channels %}
+                            <label class="list-group-item list-group-item-action d-flex align-items-center gap-2">
+                                <input class="form-check-input" type="checkbox" name="channel_ids" value="{{ ch.id }}">
+                                <span>{{ ch.title }}</span>
+                                {% if ch.username %}
+                                <small class="text-secondary ms-auto">@{{ ch.username }}</small>
+                                {% endif %}
+                            </label>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-secondary">Нет доступных каналов. <a href="/channels">Добавьте каналы</a>.</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="keywords" class="form-label">Ключевые слова (через запятую)</label>
+                        <input type="text" class="form-control" id="keywords" name="keywords"
+                               placeholder="Например: bitcoin, ethereum, crypto">
+                        <div class="form-text">Оставьте пустым, чтобы сохранять все посты.</div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="interval_sec" class="form-label">Интервал (секунд)</label>
+                            <input type="number" class="form-control" id="interval_sec" name="interval_sec"
+                                   value="300" min="10" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="limit_per_run" class="form-label">Лимит постов за запуск</label>
+                            <input type="number" class="form-control" id="limit_per_run" name="limit_per_run"
+                                   value="50" min="1" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="notify_chat_id" class="form-label">Chat ID для уведомлений</label>
+                        <input type="number" class="form-control" id="notify_chat_id" name="notify_chat_id"
+                               placeholder="Например: {{ user.telegram_id if user else '' }}">
+                        <div class="form-text">ID чата в Telegram, куда бот будет присылать найденные посты.</div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi-check-lg me-1"></i>Создать задачу
+                        </button>
+                        <a href="/tasks" class="btn btn-outline-secondary">Отмена</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

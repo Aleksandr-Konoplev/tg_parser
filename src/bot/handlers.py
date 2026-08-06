@@ -32,6 +32,11 @@ router = Router()
 dp.include_router(router)
 
 
+async def _is_auth_pending(message: Message) -> bool:
+    from src.tg_client.auth import _pending_codes, _pending_passwords
+    return bool(_pending_codes or _pending_passwords)
+
+
 async def is_admin(message: Message) -> bool:
     return message.from_user.id == ADMIN_CHAT_ID
 
@@ -301,6 +306,11 @@ async def process_channel_username(message: Message, state: FSMContext):
                 break
             except Exception:
                 continue
+
+    if not telegram_id:
+        await message.answer("❌ Не удалось найти канал. Убедитесь, что аккаунт подписан на канал и сессия активна.")
+        await state.clear()
+        return
 
     channel = await ChannelService.create(telegram_id, username, title)  # username без @
     await state.clear()
@@ -641,10 +651,16 @@ async def cb_posts_page(call: CallbackQuery, state: FSMContext):
 # ───────────────────── Ввод кода/пароля авторизации ─────────────────────
 # Регистрируется ПОСЛЕ всех FSM-хендлеров, чтобы не перехватывать их сообщения
 
-@router.message(F.text)
+@router.message(F.text, F.from_user.id == ADMIN_CHAT_ID)
 async def handle_auth_input(message: Message):
     from src.tg_client.auth import _pending_codes, _pending_passwords
     text = message.text.strip()
+
+    if not _pending_codes and not _pending_passwords:
+        return
+
+    if text.startswith("/"):
+        return
 
     # 1. Сначала пароль (пароль может быть любой строкой, даже цифрами)
     if _pending_passwords:

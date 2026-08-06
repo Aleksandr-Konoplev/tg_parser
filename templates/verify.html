@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Подтверждение входа — tg-parser{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <div class="text-center mb-4">
+                    <i class="bi-shield-lock fs-1 text-primary"></i>
+                    <h3 class="mt-2">Подтверждение входа</h3>
+                    {% if message %}
+                    <p class="text-success">{{ message }}</p>
+                    {% endif %}
+                    <p class="text-secondary">Введите код из Telegram</p>
+                </div>
+
+                <form method="post" action="/verify">
+                    <input type="hidden" name="telegram_id" value="{{ telegram_id }}">
+                    <div class="mb-3">
+                        <label for="code" class="form-label">6-значный код</label>
+                        <input type="text" class="form-control text-center fs-3" id="code" name="code"
+                               maxlength="6" inputmode="numeric" pattern="\d{6}"
+                               placeholder="000000" required autocomplete="off">
+                        <div class="form-text">Введите код, который пришёл в Telegram от бота.</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi-check-lg me-2"></i>Подтвердить
+                    </button>
+                </form>
+
+                {% if error %}
+                <div class="alert alert-danger mt-3 mb-0" role="alert">
+                    {{ error }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="text-center mt-3">
+            <a href="/login" class="text-secondary">← Назад</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

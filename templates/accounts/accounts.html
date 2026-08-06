@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Аккаунты — tg-parser{% endblock %}
+{% block content %}
+<h1 class="mb-4"><i class="bi-person-lines-fill me-2"></i>Аккаунты Telegram</h1>
+
+<!-- Форма создания аккаунта -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi-plus-circle me-2"></i>Добавить аккаунт</h5>
+    </div>
+    <div class="card-body">
+        <form method="post" action="/accounts/create" class="row g-3">
+            <div class="col-md-4">
+                <label for="phone" class="form-label">Номер телефона</label>
+                <input type="text" class="form-control" id="phone" name="phone" placeholder="+79991234567" required>
+            </div>
+            <div class="col-md-3">
+                <label for="api_id" class="form-label">API ID</label>
+                <input type="number" class="form-control" id="api_id" name="api_id" required>
+            </div>
+            <div class="col-md-3">
+                <label for="api_hash" class="form-label">API Hash</label>
+                <input type="text" class="form-control" id="api_hash" name="api_hash" required>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi-plus-lg me-1"></i>Добавить
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Список аккаунтов -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi-list me-2"></i>Список аккаунтов</h5>
+    </div>
+    <div class="card-body p-0">
+        {% if accounts %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>#</th>
+                        <th>Телефон</th>
+                        <th>API ID</th>
+                        <th>Сессия</th>
+                        <th>Статус</th>
+                        <th>Создан</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for acc in accounts %}
+                    <tr>
+                        <td>{{ acc.id }}</td>
+                        <td>{{ acc.phone }}</td>
+                        <td>{{ acc.api_id }}</td>
+                        <td>
+                            {% if acc.session_str %}
+                            <span class="badge bg-success"><i class="bi-check-lg"></i> Есть</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark"><i class="bi-x-lg"></i> Нет</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge {% if acc.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ 'Активен' if acc.is_active else 'Отключён' }}
+                            </span>
+                        </td>
+                        <td>{{ acc.created_at.strftime('%d.%m.%Y') if acc.created_at else '' }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="/accounts/{{ acc.id }}" class="btn btn-outline-info" title="Детали">
+                                    <i class="bi-eye"></i>
+                                </a>
+                                <form method="post" action="/accounts/{{ acc.id }}/toggle" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-{{ 'warning' if acc.is_active else 'success' }}"
+                                            title="{{ 'Отключить' if acc.is_active else 'Включить' }}">
+                                        <i class="bi-{{ 'pause-fill' if acc.is_active else 'play-fill' }}"></i>
+                                    </button>
+                                </form>
+                                <form method="post" action="/accounts/{{ acc.id }}/delete" class="d-inline"
+                                      onsubmit="return confirm('Удалить аккаунт {{ acc.phone }}?')">
+                                    <button type="submit" class="btn btn-outline-danger" title="Удалить">
+                                        <i class="bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-secondary p-3 mb-0">Нет аккаунтов. Добавьте первый через форму выше.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

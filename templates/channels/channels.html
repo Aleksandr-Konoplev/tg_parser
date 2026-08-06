@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Каналы — tg-parser{% endblock %}
+{% block content %}
+<h1 class="mb-4"><i class="bi-megaphone me-2"></i>Каналы</h1>
+
+<!-- Форма создания канала -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi-plus-circle me-2"></i>Добавить канал</h5>
+    </div>
+    <div class="card-body">
+        <form method="post" action="/channels/create" class="row g-3">
+            <div class="col-md-5">
+                <label for="identifier" class="form-label">Telegram username или ссылка</label>
+                <input type="text" class="form-control" id="identifier" name="identifier"
+                       placeholder="@channel или https://t.me/channel" required>
+                <div class="form-text">Бот должен быть подписан на канал.</div>
+            </div>
+            <div class="col-md-5">
+                <label for="account_id" class="form-label">Аккаунт для проверки</label>
+                <select class="form-select" id="account_id" name="account_id" required>
+                    <option value="">— выберите аккаунт —</option>
+                    {% for acc in accounts %}
+                    <option value="{{ acc.id }}">{{ acc.phone }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi-plus-lg me-1"></i>Добавить
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Список каналов -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi-list me-2"></i>Список каналов</h5>
+    </div>
+    <div class="card-body p-0">
+        {% if channels %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>#</th>
+                        <th>Название</th>
+                        <th>Username</th>
+                        <th>Telegram ID</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ch in channels %}
+                    <tr>
+                        <td>{{ ch.id }}</td>
+                        <td>{{ ch.title }}</td>
+                        <td>
+                            {% if ch.username %}
+                            <a href="https://t.me/{{ ch.username }}" target="_blank">@{{ ch.username }}</a>
+                            {% else %}
+                            <span class="text-secondary">—</span>
+                            {% endif %}
+                        </td>
+                        <td><code>{{ ch.telegram_id }}</code></td>
+                        <td>
+                            <span class="badge {% if ch.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ 'Активен' if ch.is_active else 'Отключён' }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="/channels/{{ ch.id }}" class="btn btn-outline-info" title="Детали">
+                                    <i class="bi-eye"></i>
+                                </a>
+                                <form method="post" action="/channels/{{ ch.id }}/toggle" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-{{ 'warning' if ch.is_active else 'success' }}"
+                                            title="{{ 'Отключить' if ch.is_active else 'Включить' }}">
+                                        <i class="bi-{{ 'pause-fill' if ch.is_active else 'play-fill' }}"></i>
+                                    </button>
+                                </form>
+                                <form method="post" action="/channels/{{ ch.id }}/delete" class="d-inline"
+                                      onsubmit="return confirm('Удалить канал {{ ch.title }}?')">
+                                    <button type="submit" class="btn btn-outline-danger" title="Удалить">
+                                        <i class="bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-secondary p-3 mb-0">Нет каналов. Добавьте первый через форму выше.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

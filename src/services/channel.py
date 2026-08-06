@@ -1,38 +1,87 @@
-from src.db.models import Channel
+"""
+Сервис для работы с Channel.
+Поддерживает изоляцию по user_id: каждый пользователь веба видит только свои каналы.
+Если user_id=None (вызов из бота), то не фильтрует по владельцу.
+"""
+from src.db.models import Channel, WebUser
 from src.utils.logger import logger
 
 
 class ChannelService:
 
     @staticmethod
-    async def create(telegram_id: int, username: str | None, title: str):
-        # Telegram ID может быть отрицательным числом (private supergroups/channels)
-        channel = await Channel.create(
-            telegram_id=telegram_id,
-            username=username,
-            title=title,
-        )
+    async def create(telegram_id: int, username: str | None, title: str, user_id: int | None = None):
+        """
+        Создать канал для парсинга.
+        Если канал с таким telegram_id уже существует (в т.ч. неактивный) —
+        реактивирует его и обновляет данные.
+        Если user_id передан — привязывает канал к пользователю веба.
+        Если user_id=None — канал считается общим (старый админ).
+        """
+        existing = await Channel.get_or_none(telegram_id=telegram_id)
+        if existing:
+            existing.username = username
+            existing.title = title
+            existing.is_active = True
+            if user_id is not None:
+                user = await WebUser.get_or_none(id=user_id)
+                if user:
+                    existing.user = user
+            await existing.save()
+            logger.info(f"Канал восстановлен: {username or telegram_id}")
+            return existing
+
+        kwargs = {
+            "telegram_id": telegram_id,
+            "username": username,
+            "title": title,
+        }
+        if user_id is not None:
+            user = await WebUser.get_or_none(id=user_id)
+            if user:
+                kwargs["user"] = user
+        channel = await Channel.create(**kwargs)
         logger.info(f"Канал создан: {username or telegram_id}")
         return channel
 
     @staticmethod
     async def get(channel_id: int):
+        """Достать канал по ID."""
         return await Channel.get_or_none(id=channel_id)
 
     @staticmethod
     async def get_by_telegram_id(telegram_id: int):
+        """Достать канал по telegram_id."""
         return await Channel.get_or_none(telegram_id=telegram_id)
 
     @staticmethod
-    async def get_active():
-        return await Channel.filter(is_active=True).order_by("id")
+    async def get_active(user_id: int | None = None):
+        """
+        Получить активные каналы.
+        Если user_id передан — только свои + общие.
+        """
+        if user_id is None:
+            return await Channel.filter(is_active=True).order_by("id")
+        return await Channel.filter(
+            is_active=True,
+            user_id__in=[user_id, None]
+        ).order_by("id")
 
     @staticmethod
-    async def get_all():
-        return await Channel.all().order_by("id")
+    async def get_all(user_id: int | None = None):
+        """
+        Получить все каналы.
+        Если user_id передан — только свои + общие.
+        """
+        if user_id is None:
+            return await Channel.all().order_by("id")
+        return await Channel.filter(
+            user_id__in=[user_id, None]
+        ).order_by("id")
 
     @staticmethod
     async def update(channel_id: int, **fields):
+        """Обновить поля канала."""
         channel = await ChannelService.get(channel_id)
         if not channel:
             return None
@@ -42,16 +91,9 @@ class ChannelService:
         await channel.save()
         return channel
 
-    # @staticmethod
-    # async def delete(channel_id: int):
-    #     channel = await ChannelService.get(channel_id)
-    #     if not channel:
-    #         return False
-    #     await channel.delete()
-    #     return True
-
     @staticmethod
     async def delete(channel_id: int):
+        """Мягкое удаление канала (is_active=False)."""
         channel = await ChannelService.get(channel_id)
         if not channel:
             return False

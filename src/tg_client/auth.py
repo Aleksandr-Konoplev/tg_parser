@@ -21,10 +21,15 @@ class AuthManager:
         await bot.send_message(
             ADMIN_CHAT_ID,
             f"🔐 Требуется код для аккаунта #{account_id}\n"
-            f"Отправьте код подтверждения в ответ:",
+            f"Отправьте код подтверждения в ответ (5 минут):",
         )
         logger.info(f"Запрошен код для аккаунта {account_id}")
-        return await future  # ждём код от пользователя
+        try:
+            return await asyncio.wait_for(future, timeout=300)  # 5 минут
+        except asyncio.TimeoutError:
+            _pending_codes.pop(account_id, None)
+            logger.warning(f"Таймаут ожидания кода для аккаунта {account_id}")
+            raise  # пробросить наверх, в ClientPool
 
     # Бот вызывает этот метод, когда юзер прислал код. Разрешает Future.
     @staticmethod
@@ -46,8 +51,12 @@ class AuthManager:
             f"🔑 Для аккаунта #{account_id} включена двухфакторная авторизация.\n"
             f"Отправьте пароль в ответ:",
         )
-        logger.info(f"Запрошен 2FA-пароль для аккаунта {account_id}")
-        return await future  # ждём пароль от пользователя
+        try:
+            return await asyncio.wait_for(future, timeout=300)
+        except asyncio.TimeoutError:
+            _pending_passwords.pop(account_id, None)
+            logger.warning(f"Таймаут ожидания пароля для аккаунта {account_id}")
+            raise
 
     # Бот вызывает, когда юзер прислал пароль. Разрешает Future.
     @staticmethod
