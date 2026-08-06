@@ -56,7 +56,7 @@
                     {% for acc in accounts %}
                     <tr>
                         <td>{{ acc.id }}</td>
-                        <td>{{ acc.phone }}</td>
+                        <a href="/accounts/{{ acc.id }}" class="btn btn-outline-info" title="Детали"><td>{{ acc.phone }}</td></a>
                         <td>{{ acc.api_id }}</td>
                         <td>
                             {% if acc.session_str %}
@@ -73,9 +73,6 @@
                         <td>{{ acc.created_at.strftime('%d.%m.%Y') if acc.created_at else '' }}</td>
                         <td>
                             <div class="btn-group btn-group-sm">
-                                <a href="/accounts/{{ acc.id }}" class="btn btn-outline-info" title="Детали">
-                                    <i class="bi-eye"></i>
-                                </a>
                                 <form method="post" action="/accounts/{{ acc.id }}/toggle" class="d-inline">
                                     <button type="submit" class="btn btn-outline-{{ 'warning' if acc.is_active else 'success' }}"
                                             title="{{ 'Отключить' if acc.is_active else 'Включить' }}">

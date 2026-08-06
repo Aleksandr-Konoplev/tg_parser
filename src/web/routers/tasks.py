@@ -41,6 +41,20 @@ async def tasks_list(request: Request, user: WebUser = Depends(get_current_user)
     )
 
 
+@router.get("/tasks/create", response_class=HTMLResponse)
+async def task_create_form(request: Request, user: WebUser = Depends(get_current_user)):
+    """Форма создания новой задачи."""
+    templates = request.app.state.templates
+    accounts = await AccountService.get_all(user_id=user.id, include_common=user.is_admin)
+    channels = await ChannelService.get_active(user_id=user.id, include_common=user.is_admin)
+    return templates.TemplateResponse(
+        request,
+        "tasks/task_create.html",
+        {"request": request, "user": user, "accounts": accounts, "channels": channels,
+         "error": request.query_params.get("error")},
+    )
+
+
 @router.get("/tasks/{task_id}", response_class=HTMLResponse)
 async def task_detail(request: Request, task_id: int, user: WebUser = Depends(get_current_user)):
     """Детальная информация о задаче."""
@@ -48,6 +62,7 @@ async def task_detail(request: Request, task_id: int, user: WebUser = Depends(ge
     task = await RequestService.get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Задача не найдена")
+    await task.fetch_related("account")
     scope = await get_user_scope(user)
     if task.user_id not in scope:
         raise HTTPException(status_code=403, detail="Нет доступа к этой задаче")
@@ -61,20 +76,6 @@ async def task_detail(request: Request, task_id: int, user: WebUser = Depends(ge
             "task": task, "channels": channels,
             "posts_count": posts_count,
         },
-    )
-
-
-@router.get("/tasks/create", response_class=HTMLResponse)
-async def task_create_form(request: Request, user: WebUser = Depends(get_current_user)):
-    """Форма создания новой задачи."""
-    templates = request.app.state.templates
-    accounts = await AccountService.get_all(user_id=user.id, include_common=user.is_admin)
-    channels = await ChannelService.get_active(user_id=user.id, include_common=user.is_admin)
-    return templates.TemplateResponse(
-        request,
-        "tasks/task_create.html",
-        {"request": request, "user": user, "accounts": accounts, "channels": channels,
-         "error": request.query_params.get("error")},
     )
 
 
