@@ -28,4 +28,4 @@ COPY . .
 EXPOSE 8000
 
 # По умолчанию запускается бот; для веба команда переопределяется в docker-compose.yml
-CMD ["python", "src/main.py"]
+CMD ["python", "-m", "src.main"]

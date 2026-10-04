@@ -22,7 +22,7 @@ services:
       # Внутри Docker-сети хост БД — это имя сервиса `postgres`.
       # Поэтому DB_URL собирается автоматически из POSTGRES_* и не задаётся в .env вручную.
       DB_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-tg_parser}
-    command: ["python", "src/main.py"]
+    command: ["python", "-m", "src.main"]
     depends_on:
       postgres:
         condition: service_healthy
