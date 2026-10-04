@@ -172,6 +172,23 @@ docker compose run --rm bot aerich upgrade
 docker compose up -d
 ```
 
+### Смена пароля PostgreSQL
+
+Пароль из `POSTGRES_PASSWORD` применяется только при **первой** инициализации
+пустого тома `pgdata`. Если позже поменять его в `.env`, это не повлияет на
+уже созданную БД. Чтобы сменить пароль:
+
+```bash
+# Вариант 1 — сбросить БД полностью (данные будут удалены):
+docker compose down -v
+docker compose up -d postgres
+
+# Вариант 2 — сменить пароль без потери данных:
+docker compose exec postgres psql -U postgres -c "ALTER USER postgres WITH PASSWORD 'новый_пароль';"
+# после чего обновите POSTGRES_PASSWORD в .env и пересоздайте bot/web:
+docker compose up -d --force-recreate bot web
+```
+
 ### Полезные команды
 
 ```bash
