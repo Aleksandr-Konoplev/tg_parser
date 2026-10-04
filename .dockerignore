@@ -1,0 +1,12 @@
+.git
+.venv
+.env
+.secret_key
+.idea
+.vscode
+__pycache__
+*.py[cod]
+*.log
+.pytest_cache
+.mypy_cache
+.ruff_cache

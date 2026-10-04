@@ -101,3 +101,84 @@ Telegram-аккаунты, с которых выполняется парсин
 #### `aerich`
 
 Служебная таблица миграций Aerich. Содержит версии применённых миграций.
+
+---
+
+## Деплой (Docker + Docker Compose)
+
+Приложение запускается на сервере в трёх Docker-контейнерах:
+- `postgres` — база данных PostgreSQL 16 (данные в volume `pgdata`);
+- `bot` — Telegram-бот и парсер (`python src/main.py`);
+- `web` — веб-интерфейс FastAPI (`python -m src.web`, порт `WEB_PORT`).
+
+Зависимости внутри образа устанавливаются через Poetry (`Dockerfile`).
+Конфигурация читается из файла `.env` (не коммитится).
+
+### Первичная настройка сервера
+
+Установите Docker и Docker Compose v2, добавьте пользователя в группу `docker`
+(после этого нужно перелогиниться в SSH):
+
+```bash
+sudo apt update && sudo apt install -y docker.io docker-compose-v2
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER
+```
+
+Склонируйте репозиторий и создайте `.env` из шаблона:
+
+```bash
+cd /opt
+git clone https://github.com/Aleksandr-Konoplev/tg_parser.git tg_parser
+cd tg_parser
+
+cp .env.example .env
+nano .env    # вписать реальные значения (BOT_TOKEN, POSTGRES_PASSWORD, WEB_SECRET_KEY и т.д.)
+```
+
+> Для приватного репозитория нужен доступ: Personal Access Token (HTTPS) или SSH-ключ.
+
+### Запуск (первый раз и после изменений)
+
+```bash
+cd /opt/tg_parser
+
+# 1. Собрать образы
+docker compose build
+
+# 2. Поднять БД и дождаться её готовности
+docker compose up -d postgres
+docker compose up -d --wait postgres
+
+# 3. Применить миграции Aerich
+docker compose run --rm bot aerich upgrade
+
+# 4. Запустить бота и веб-интерфейс
+docker compose up -d
+
+# 5. Проверить статус
+docker compose ps
+```
+
+### Обновление приложения
+
+```bash
+cd /opt/tg_parser
+git pull
+docker compose build
+docker compose up -d postgres
+docker compose up -d --wait postgres
+docker compose run --rm bot aerich upgrade
+docker compose up -d
+```
+
+### Полезные команды
+
+```bash
+docker compose logs -f bot web      # логи бота и веба
+docker compose restart bot          # перезапустить бота
+docker compose down                 # остановить (без удаления данных БД)
+docker compose down -v              # остановить и удалить данные БД (осторожно!)
+```
+
+Веб-интерфейс после запуска доступен по адресу `http://<ip-сервера>:8000`.
